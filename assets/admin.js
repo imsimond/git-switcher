@@ -61,6 +61,9 @@
     const [gitBinary, setGitBinary] = useState(gitSwitcherData.gitBinary || "");
     const [savingSettings, setSavingSettings] = useState(false);
     const lastToggleRef = useRef(0);
+    const [statAnchor, setStatAnchor] = useState(null);
+    const [statContent, setStatContent] = useState("");
+    const [showStat, setShowStat] = useState(false);
 
     const timeoutRef = useRef(null);
 
@@ -104,6 +107,73 @@
         return Math.floor(diff / 86400) + "d";
       }
       return Math.floor(diff / 604800) + "w";
+    }
+
+    function renderShowStatContent(content) {
+      const text = String(content || "");
+      const lines = text.split("\n");
+
+      function renderSummaryLine(line, idx) {
+        const tokenRegex = /(\d+\s+insertions?\(\+\))|(\d+\s+deletions?\(-\))/g;
+        const parts = [];
+        let cursor = 0;
+        let match;
+
+        while ((match = tokenRegex.exec(line)) !== null) {
+          if (match.index > cursor) {
+            parts.push(line.slice(cursor, match.index));
+          }
+
+          const tokenText = match[0];
+          const tokenClass =
+            tokenText.indexOf("insert") !== -1
+              ? "git-switcher-showstat-token is-insertions"
+              : "git-switcher-showstat-token is-deletions";
+
+          parts.push(
+            el(
+              "span",
+              {
+                className: tokenClass,
+                key: "showstat-token-" + idx + "-" + match.index,
+              },
+              tokenText,
+            ),
+          );
+
+          cursor = match.index + tokenText.length;
+        }
+
+        if (cursor < line.length) {
+          parts.push(line.slice(cursor));
+        }
+
+        return parts.length ? parts : line;
+      }
+
+      return lines.map(function (line, idx) {
+        let className = "git-switcher-showstat-line";
+        let lineContent = line;
+
+        if (/^\s*\d+\s+files?\s+changed\b/.test(line)) {
+          className += " is-summary";
+          lineContent = renderSummaryLine(line, idx);
+        } else if (/^\s*[^\s].*\|\s+\d+/.test(line)) {
+          className += " is-file";
+        } else if (/^(commit|Author:|Date:)\b/.test(line)) {
+          className += " is-meta";
+        }
+
+        return el(
+          "span",
+          {
+            className: className,
+            key: "showstat-line-" + idx,
+          },
+          lineContent,
+          idx < lines.length - 1 ? "\n" : "",
+        );
+      });
     }
 
     function loadRepositories() {
@@ -322,6 +392,7 @@
                           const branch = branchObj.name;
                           const lastTs = branchObj.last_commit;
                           const lastAuthor = branchObj.last_author || "";
+                          const lastShow = branchObj.last_commit_show || "";
                           const isCurrent =
                             normalizeBranch(branch) ===
                             normalizeBranch(repo.branch);
@@ -340,6 +411,16 @@
                                   switchBranch(repo.slug, branch);
                                 },
                                 disabled: switchingKey === key,
+                                onMouseEnter: function (e) {
+                                  if (lastShow) {
+                                    setStatAnchor(e.currentTarget);
+                                    setStatContent(lastShow);
+                                    setShowStat(true);
+                                  }
+                                },
+                                onMouseLeave: function () {
+                                  setShowStat(false);
+                                },
                               },
                               el(
                                 "span",
@@ -374,6 +455,28 @@
                                   )
                                 : null,
                             ),
+                            showStat && statAnchor
+                              ? el(
+                                  Popover,
+                                  {
+                                    anchor: statAnchor,
+                                    placement: "right-start",
+                                    className: "git-switcher-showstat-popover",
+                                    onClose: function () {
+                                      setShowStat(false);
+                                    },
+                                  },
+                                  el(
+                                    "div",
+                                    { className: "git-switcher-showstat" },
+                                    el(
+                                      "pre",
+                                      null,
+                                      renderShowStatContent(statContent),
+                                    ),
+                                  ),
+                                )
+                              : null,
                           );
                         }),
                       )

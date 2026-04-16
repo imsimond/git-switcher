@@ -234,18 +234,20 @@ function git_switcher_get_git_plugin_repositories() {
 			if ( $current_branch ) {
 				$info           = git_switcher_get_branch_last_commit_info( $repo_path, $current_branch );
 				$branch_items[] = array(
-					'name'        => $current_branch,
-					'last_commit' => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
-					'last_author' => isset( $info['author'] ) ? $info['author'] : '',
+					'name'             => $current_branch,
+					'last_commit'      => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
+					'last_author'      => isset( $info['author'] ) ? $info['author'] : '',
+					'last_commit_show' => isset( $info['show_stat'] ) ? $info['show_stat'] : '',
 				);
 			}
 		} else {
 			foreach ( $branches as $b ) {
 				$info           = git_switcher_get_branch_last_commit_info( $repo_path, $b );
 				$branch_items[] = array(
-					'name'        => $b,
-					'last_commit' => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
-					'last_author' => isset( $info['author'] ) ? $info['author'] : '',
+					'name'             => $b,
+					'last_commit'      => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
+					'last_author'      => isset( $info['author'] ) ? $info['author'] : '',
+					'last_commit_show' => isset( $info['show_stat'] ) ? $info['show_stat'] : '',
 				);
 			}
 		}
@@ -475,8 +477,8 @@ function git_switcher_get_branch_last_commit_info( $repo_path, $branch ) {
 		return array();
 	}
 
-	// Use git show to get commit timestamp and author name separated by a \x01 marker.
-	$format = '%ct%x01%an';
+	// Use git show to get commit SHA, timestamp and author name separated by a \x01 marker.
+	$format = '%H%x01%ct%x01%an';
 	$cmd    = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' show -s --format=' . escapeshellarg( $format ) . ' ' . escapeshellarg( $branch ) . ' 2>/dev/null';
 	$raw    = shell_exec( $cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
 	$out    = trim( (string) $raw );
@@ -485,13 +487,54 @@ function git_switcher_get_branch_last_commit_info( $repo_path, $branch ) {
 	}
 
 	$parts  = explode( "\x01", $out );
-	$ts     = isset( $parts[0] ) && ctype_digit( $parts[0] ) ? (int) $parts[0] : '';
-	$author = isset( $parts[1] ) ? trim( $parts[1] ) : '';
+	$sha    = isset( $parts[0] ) ? trim( $parts[0] ) : '';
+	$ts     = isset( $parts[1] ) && ctype_digit( $parts[1] ) ? (int) $parts[1] : '';
+	$author = isset( $parts[2] ) ? trim( $parts[2] ) : '';
+
+	$show_stat = git_switcher_get_commit_show_stat( $repo_path, $sha );
 
 	return array(
+		'sha'       => $sha,
 		'timestamp' => $ts,
 		'author'    => $author,
+		'show_stat' => $show_stat,
 	);
+}
+
+
+/**
+ * Get commit details including `git show --stat` and shortstat summary line.
+ *
+ * @param string $repo_path Absolute path to repository.
+ * @param string $commit_ref Commit SHA or ref.
+ * @return string Commit info and stat, or empty string on failure.
+ */
+function git_switcher_get_commit_show_stat( $repo_path, $commit_ref ) {
+	if ( '' === $commit_ref ) {
+		return '';
+	}
+
+	$git_binary = git_switcher_get_git_binary();
+	if ( '' === $git_binary ) {
+		return '';
+	}
+
+	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' show --stat --no-patch --no-color ' . escapeshellarg( $commit_ref ) . ' 2>/dev/null';
+	$raw = shell_exec( $cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+	if ( null === $raw ) {
+		return '';
+	}
+
+	$shortstat_cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' show --shortstat --format=' . escapeshellarg( '' ) . ' --no-color ' . escapeshellarg( $commit_ref ) . ' 2>/dev/null';
+	$shortstat_raw = shell_exec( $shortstat_cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+	$shortstat     = trim( (string) $shortstat_raw );
+
+	$out = trim( (string) $raw );
+	if ( '' !== $shortstat && false === strpos( $out, $shortstat ) ) {
+		$out .= "\n\n" . $shortstat;
+	}
+
+	return $out;
 }
 
 /**
