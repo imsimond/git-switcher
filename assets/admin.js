@@ -12,7 +12,6 @@
 
   const Popover = components.Popover;
   const Button = components.Button;
-  const Badge = components.Badge;
   const Spinner = components.Spinner;
   const Notice = components.Notice;
   const TabPanel = components.TabPanel;
@@ -450,12 +449,11 @@
                                 branch,
                                 hasDivergence && ahead
                                   ? el(
-                                      Badge,
+                                      "span",
                                       {
                                         className:
                                           "git-switcher-badge git-switcher-ahead",
                                         title: "Upstream: " + upstream,
-                                        status: "success",
                                         key: "ahead-" + key,
                                       },
                                       " ↑" + ahead,
@@ -463,12 +461,11 @@
                                   : null,
                                 hasDivergence && behind
                                   ? el(
-                                      Badge,
+                                      "span",
                                       {
                                         className:
                                           "git-switcher-badge git-switcher-behind",
                                         title: "Upstream: " + upstream,
-                                        status: "warning",
                                         key: "behind-" + key,
                                       },
                                       " ↓" + behind,

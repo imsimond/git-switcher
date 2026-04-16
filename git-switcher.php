@@ -588,13 +588,11 @@ function git_switcher_get_branch_track_counts( $repo_path, $branch ) {
 		);
 	}
 
-	$format = '%(upstream:short)%x01%(upstream:track)';
-	$cmd    = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format=' . escapeshellarg( $format ) . ' ' . escapeshellarg( 'refs/heads/' . $branch ) . ' 2>/dev/null';
-	$out    = trim( (string) shell_exec( $cmd ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+	$upstream_cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format=' . escapeshellarg( '%(upstream:short)' ) . ' ' . escapeshellarg( 'refs/heads/' . $branch ) . ' 2>/dev/null';
+	$track_cmd    = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format=' . escapeshellarg( '%(upstream:track)' ) . ' ' . escapeshellarg( 'refs/heads/' . $branch ) . ' 2>/dev/null';
 
-	$parts        = explode( "\x01", $out, 2 );
-	$upstream_ref = isset( $parts[0] ) ? trim( (string) $parts[0] ) : '';
-	$raw          = isset( $parts[1] ) ? trim( (string) $parts[1] ) : '';
+	$upstream_ref = trim( (string) shell_exec( $upstream_cmd ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+	$raw          = trim( (string) shell_exec( $track_cmd ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
 
 	$ahead  = 0;
 	$behind = 0;
