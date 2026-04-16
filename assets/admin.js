@@ -402,16 +402,6 @@
                           const lastShowShort = lastShow
                             ? String(lastShow).split("\n")[0]
                             : "";
-                          const tooltipParts = [];
-                          if (lastShowShort) {
-                            tooltipParts.push(lastShowShort);
-                          }
-                          if (upstream) {
-                            tooltipParts.push("Upstream: " + upstream);
-                          }
-                          const tooltip = tooltipParts.length
-                            ? tooltipParts.join("\n")
-                            : undefined;
                           const isCurrent =
                             normalizeBranch(branch) ===
                             normalizeBranch(repo.branch);
@@ -430,7 +420,7 @@
                                   switchBranch(repo.slug, branch);
                                 },
                                 disabled: switchingKey === key,
-                                title: tooltip,
+                                // no tooltip
                                 onMouseEnter: function (e) {
                                   if (lastShow) {
                                     setStatAnchor(e.currentTarget);
@@ -453,7 +443,7 @@
                                       {
                                         className:
                                           "git-switcher-badge git-switcher-ahead",
-                                        title: "Upstream: " + upstream,
+                                        title: upstream || undefined,
                                         key: "ahead-" + key,
                                       },
                                       " ↑" + ahead,
@@ -465,7 +455,7 @@
                                       {
                                         className:
                                           "git-switcher-badge git-switcher-behind",
-                                        title: "Upstream: " + upstream,
+                                        title: upstream || undefined,
                                         key: "behind-" + key,
                                       },
                                       " ↓" + behind,
