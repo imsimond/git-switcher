@@ -393,6 +393,22 @@
                           const lastTs = branchObj.last_commit;
                           const lastAuthor = branchObj.last_author || "";
                           const lastShow = branchObj.last_commit_show || "";
+                          const ahead = branchObj.ahead || 0;
+                          const behind = branchObj.behind || 0;
+                          const upstream = branchObj.upstream || "";
+                          const lastShowShort = lastShow
+                            ? String(lastShow).split("\n")[0]
+                            : "";
+                          const tooltipParts = [];
+                          if (lastShowShort) {
+                            tooltipParts.push(lastShowShort);
+                          }
+                          if (upstream) {
+                            tooltipParts.push(upstream);
+                          }
+                          const tooltip = tooltipParts.length
+                            ? tooltipParts.join("\n")
+                            : undefined;
                           const isCurrent =
                             normalizeBranch(branch) ===
                             normalizeBranch(repo.branch);
@@ -411,6 +427,7 @@
                                   switchBranch(repo.slug, branch);
                                 },
                                 disabled: switchingKey === key,
+                                title: tooltip,
                                 onMouseEnter: function (e) {
                                   if (lastShow) {
                                     setStatAnchor(e.currentTarget);
@@ -427,6 +444,30 @@
                                 { className: "git-switcher-branch-left" },
                                 isCurrent ? "✓ " : "",
                                 branch,
+                                ahead
+                                  ? el(
+                                      "span",
+                                      {
+                                        className:
+                                          "git-switcher-sync git-switcher-ahead",
+                                        title: upstream || "Ahead " + ahead,
+                                        key: "ahead-" + key,
+                                      },
+                                      " ↑" + ahead,
+                                    )
+                                  : null,
+                                behind
+                                  ? el(
+                                      "span",
+                                      {
+                                        className:
+                                          "git-switcher-sync git-switcher-behind",
+                                        title: upstream || "Behind " + behind,
+                                        key: "behind-" + key,
+                                      },
+                                      " ↓" + behind,
+                                    )
+                                  : null,
                               ),
                               el(
                                 "span",

@@ -238,6 +238,9 @@ function git_switcher_get_git_plugin_repositories() {
 					'last_commit'      => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
 					'last_author'      => isset( $info['author'] ) ? $info['author'] : '',
 					'last_commit_show' => isset( $info['show_stat'] ) ? $info['show_stat'] : '',
+					'upstream'         => isset( $info['upstream_raw'] ) ? $info['upstream_raw'] : '',
+					'ahead'            => isset( $info['ahead'] ) ? (int) $info['ahead'] : 0,
+					'behind'           => isset( $info['behind'] ) ? (int) $info['behind'] : 0,
 				);
 			}
 		} else {
@@ -248,6 +251,9 @@ function git_switcher_get_git_plugin_repositories() {
 					'last_commit'      => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
 					'last_author'      => isset( $info['author'] ) ? $info['author'] : '',
 					'last_commit_show' => isset( $info['show_stat'] ) ? $info['show_stat'] : '',
+					'upstream'         => isset( $info['upstream_raw'] ) ? $info['upstream_raw'] : '',
+					'ahead'            => isset( $info['ahead'] ) ? (int) $info['ahead'] : 0,
+					'behind'           => isset( $info['behind'] ) ? (int) $info['behind'] : 0,
 				);
 			}
 		}
@@ -493,11 +499,17 @@ function git_switcher_get_branch_last_commit_info( $repo_path, $branch ) {
 
 	$show_stat = git_switcher_get_commit_show_stat( $repo_path, $sha );
 
+	$track = git_switcher_get_branch_track_counts( $repo_path, $branch );
+
 	return array(
-		'sha'       => $sha,
-		'timestamp' => $ts,
-		'author'    => $author,
-		'show_stat' => $show_stat,
+		'sha'          => $sha,
+		'timestamp'    => $ts,
+		'author'       => $author,
+		'show_stat'    => $show_stat,
+		'upstream_raw' => isset( $track['raw'] ) ? $track['raw'] : '',
+		'ahead'        => isset( $track['ahead'] ) ? $track['ahead'] : 0,
+		'behind'       => isset( $track['behind'] ) ? $track['behind'] : 0,
+		'gone'         => isset( $track['gone'] ) ? $track['gone'] : false,
 	);
 }
 
@@ -535,6 +547,53 @@ function git_switcher_get_commit_show_stat( $repo_path, $commit_ref ) {
 	}
 
 	return $out;
+}
+
+
+/**
+ * Get tracking information for a branch (raw upstream:track and parsed counts).
+ *
+ * Uses git's "%(upstream:track)" format to obtain a short upstream tracking
+ * description such as "[ahead 1]", "[behind 2]", or "[ahead 1, behind 2]".
+ *
+ * @param string $repo_path Absolute path to repository.
+ * @param string $branch    Branch name.
+ * @return array{raw:string,ahead:int,behind:int,gone:bool}
+ */
+function git_switcher_get_branch_track_counts( $repo_path, $branch ) {
+	$git_binary = git_switcher_get_git_binary();
+	if ( '' === $git_binary ) {
+		return array(
+			'raw'    => '',
+			'ahead'  => 0,
+			'behind' => 0,
+			'gone'   => false,
+		);
+	}
+
+	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format="%(upstream:track)" ' . escapeshellarg( 'refs/heads/' . $branch ) . ' 2>/dev/null';
+	$raw = trim( (string) shell_exec( $cmd ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+
+	$ahead  = 0;
+	$behind = 0;
+	$gone   = false;
+
+	if ( preg_match( '/ahead\s+(\d+)/', $raw, $m ) ) {
+		$ahead = (int) $m[1];
+	}
+	if ( preg_match( '/behind\s+(\d+)/', $raw, $m ) ) {
+		$behind = (int) $m[1];
+	}
+	if ( false !== strpos( $raw, 'gone' ) ) {
+		$gone = true;
+	}
+
+	return array(
+		'raw'    => $raw,
+		'ahead'  => $ahead,
+		'behind' => $behind,
+		'gone'   => $gone,
+	);
 }
 
 /**
