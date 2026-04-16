@@ -66,19 +66,28 @@ function git_switcher_enqueue_assets() {
 	$handle = 'git-switcher-admin';
 	$src    = plugins_url( 'assets/admin.js', __FILE__ );
 
+	// Use file modification time as version to avoid browser caching during development.
+	$asset_dir = plugin_dir_path( __FILE__ ) . 'assets/';
+	$js_file   = $asset_dir . 'admin.js';
+	$css_file  = $asset_dir . 'admin.css';
+	$ver       = '1.1.0';
+	if ( file_exists( $js_file ) ) {
+		$ver = (string) filemtime( $js_file );
+	}
+
 	wp_enqueue_style( 'wp-components' );
 	wp_enqueue_style(
 		'git-switcher-admin',
 		plugins_url( 'assets/admin.css', __FILE__ ),
 		array( 'wp-components' ),
-		'1.1.0'
+		file_exists( $css_file ) ? (string) filemtime( $css_file ) : $ver
 	);
 
 	wp_enqueue_script(
 		$handle,
 		$src,
 		array( 'wp-element', 'wp-components', 'wp-i18n' ),
-		'1.1.0',
+		$ver,
 		true
 	);
 
@@ -238,9 +247,11 @@ function git_switcher_get_git_plugin_repositories() {
 					'last_commit'      => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
 					'last_author'      => isset( $info['author'] ) ? $info['author'] : '',
 					'last_commit_show' => isset( $info['show_stat'] ) ? $info['show_stat'] : '',
-					'upstream'         => isset( $info['upstream_raw'] ) ? $info['upstream_raw'] : '',
+					'upstream'         => isset( $info['upstream_ref'] ) ? $info['upstream_ref'] : '',
+					'upstream_track'   => isset( $info['upstream_raw'] ) ? $info['upstream_raw'] : '',
 					'ahead'            => isset( $info['ahead'] ) ? (int) $info['ahead'] : 0,
 					'behind'           => isset( $info['behind'] ) ? (int) $info['behind'] : 0,
+					'in_sync'          => isset( $info['in_sync'] ) ? (bool) $info['in_sync'] : false,
 				);
 			}
 		} else {
@@ -251,9 +262,11 @@ function git_switcher_get_git_plugin_repositories() {
 					'last_commit'      => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
 					'last_author'      => isset( $info['author'] ) ? $info['author'] : '',
 					'last_commit_show' => isset( $info['show_stat'] ) ? $info['show_stat'] : '',
-					'upstream'         => isset( $info['upstream_raw'] ) ? $info['upstream_raw'] : '',
+					'upstream'         => isset( $info['upstream_ref'] ) ? $info['upstream_ref'] : '',
+					'upstream_track'   => isset( $info['upstream_raw'] ) ? $info['upstream_raw'] : '',
 					'ahead'            => isset( $info['ahead'] ) ? (int) $info['ahead'] : 0,
 					'behind'           => isset( $info['behind'] ) ? (int) $info['behind'] : 0,
+					'in_sync'          => isset( $info['in_sync'] ) ? (bool) $info['in_sync'] : false,
 				);
 			}
 		}
@@ -506,9 +519,11 @@ function git_switcher_get_branch_last_commit_info( $repo_path, $branch ) {
 		'timestamp'    => $ts,
 		'author'       => $author,
 		'show_stat'    => $show_stat,
+		'upstream_ref' => isset( $track['upstream_ref'] ) ? $track['upstream_ref'] : '',
 		'upstream_raw' => isset( $track['raw'] ) ? $track['raw'] : '',
 		'ahead'        => isset( $track['ahead'] ) ? $track['ahead'] : 0,
 		'behind'       => isset( $track['behind'] ) ? $track['behind'] : 0,
+		'in_sync'      => isset( $track['in_sync'] ) ? (bool) $track['in_sync'] : false,
 		'gone'         => isset( $track['gone'] ) ? $track['gone'] : false,
 	);
 }
@@ -558,21 +573,28 @@ function git_switcher_get_commit_show_stat( $repo_path, $commit_ref ) {
  *
  * @param string $repo_path Absolute path to repository.
  * @param string $branch    Branch name.
- * @return array{raw:string,ahead:int,behind:int,gone:bool}
+ * @return array{upstream_ref:string,raw:string,ahead:int,behind:int,in_sync:bool,gone:bool}
  */
 function git_switcher_get_branch_track_counts( $repo_path, $branch ) {
 	$git_binary = git_switcher_get_git_binary();
 	if ( '' === $git_binary ) {
 		return array(
-			'raw'    => '',
-			'ahead'  => 0,
-			'behind' => 0,
-			'gone'   => false,
+			'upstream_ref' => '',
+			'raw'          => '',
+			'ahead'        => 0,
+			'behind'       => 0,
+			'in_sync'      => false,
+			'gone'         => false,
 		);
 	}
 
-	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format="%(upstream:track)" ' . escapeshellarg( 'refs/heads/' . $branch ) . ' 2>/dev/null';
-	$raw = trim( (string) shell_exec( $cmd ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+	$format = '%(upstream:short)%x01%(upstream:track)';
+	$cmd    = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format=' . escapeshellarg( $format ) . ' ' . escapeshellarg( 'refs/heads/' . $branch ) . ' 2>/dev/null';
+	$out    = trim( (string) shell_exec( $cmd ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+
+	$parts        = explode( "\x01", $out, 2 );
+	$upstream_ref = isset( $parts[0] ) ? trim( (string) $parts[0] ) : '';
+	$raw          = isset( $parts[1] ) ? trim( (string) $parts[1] ) : '';
 
 	$ahead  = 0;
 	$behind = 0;
@@ -588,11 +610,15 @@ function git_switcher_get_branch_track_counts( $repo_path, $branch ) {
 		$gone = true;
 	}
 
+	$in_sync = '' !== $upstream_ref && 0 === $ahead && 0 === $behind && ! $gone;
+
 	return array(
-		'raw'    => $raw,
-		'ahead'  => $ahead,
-		'behind' => $behind,
-		'gone'   => $gone,
+		'upstream_ref' => $upstream_ref,
+		'raw'          => $raw,
+		'ahead'        => $ahead,
+		'behind'       => $behind,
+		'in_sync'      => $in_sync,
+		'gone'         => $gone,
 	);
 }
 

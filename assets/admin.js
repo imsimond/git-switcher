@@ -12,6 +12,7 @@
 
   const Popover = components.Popover;
   const Button = components.Button;
+  const Badge = components.Badge;
   const Spinner = components.Spinner;
   const Notice = components.Notice;
   const TabPanel = components.TabPanel;
@@ -396,6 +397,9 @@
                           const ahead = branchObj.ahead || 0;
                           const behind = branchObj.behind || 0;
                           const upstream = branchObj.upstream || "";
+                          const hasUpstream = !!upstream;
+                          const hasDivergence =
+                            hasUpstream && (ahead || behind);
                           const lastShowShort = lastShow
                             ? String(lastShow).split("\n")[0]
                             : "";
@@ -404,7 +408,7 @@
                             tooltipParts.push(lastShowShort);
                           }
                           if (upstream) {
-                            tooltipParts.push(upstream);
+                            tooltipParts.push("Upstream: " + upstream);
                           }
                           const tooltip = tooltipParts.length
                             ? tooltipParts.join("\n")
@@ -444,25 +448,27 @@
                                 { className: "git-switcher-branch-left" },
                                 isCurrent ? "✓ " : "",
                                 branch,
-                                ahead
+                                hasDivergence && ahead
                                   ? el(
-                                      "span",
+                                      Badge,
                                       {
                                         className:
-                                          "git-switcher-sync git-switcher-ahead",
-                                        title: upstream || "Ahead " + ahead,
+                                          "git-switcher-badge git-switcher-ahead",
+                                        title: "Upstream: " + upstream,
+                                        status: "success",
                                         key: "ahead-" + key,
                                       },
                                       " ↑" + ahead,
                                     )
                                   : null,
-                                behind
+                                hasDivergence && behind
                                   ? el(
-                                      "span",
+                                      Badge,
                                       {
                                         className:
-                                          "git-switcher-sync git-switcher-behind",
-                                        title: upstream || "Behind " + behind,
+                                          "git-switcher-badge git-switcher-behind",
+                                        title: "Upstream: " + upstream,
+                                        status: "warning",
                                         key: "behind-" + key,
                                       },
                                       " ↓" + behind,
