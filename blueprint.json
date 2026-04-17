@@ -1,0 +1,14 @@
+{
+  "landingPage": "/wp-admin/plugins.php",
+  "login": true,
+  "steps": [
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "git:directory",
+        "url": "https://github.com/imsimond/git-switcher",
+        "ref": "main"
+      }
+    }
+  ]
+}
