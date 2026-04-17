@@ -125,6 +125,24 @@
   gap: 8px;
 }
 
+.git-switcher-branches-loading {
+  line-height: 1;
+}
+
+.git-switcher-branches-loading .components-spinner,
+.git-switcher-branches-loading .components-spinner svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  vertical-align: middle;
+}
+
+.git-switcher-loading-text {
+  margin: 0;
+  color: #646970;
+  font-size: 13px;
+}
+
 .git-switcher-branches-empty {
   padding: 8px;
   color: #646970;

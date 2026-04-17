@@ -434,8 +434,11 @@
                           "div",
                           { className: "git-switcher-branches-loading" },
                           el(Spinner, {}),
-                          " ",
-                          i18n.loadingBranches || "Loading branches...",
+                          el(
+                            "span",
+                            { className: "git-switcher-loading-text" },
+                            i18n.loadingBranches || "Loading branches...",
+                          ),
                         )
                       : repo.branches === null
                       ? el(
