@@ -19,6 +19,7 @@ add_action( 'wp_enqueue_scripts', 'git_switcher_enqueue_assets' );
 add_action( 'wp_ajax_git_switcher_fetch_repositories', 'git_switcher_ajax_fetch_repositories' );
 add_action( 'wp_ajax_git_switcher_checkout_branch', 'git_switcher_ajax_checkout_branch' );
 add_action( 'wp_ajax_git_switcher_save_settings', 'git_switcher_ajax_save_settings' );
+add_action( 'wp_ajax_git_switcher_fetch_repository', 'git_switcher_ajax_fetch_repository' );
 
 /**
  * Add the Git Switcher entry to the admin bar.
@@ -126,12 +127,97 @@ function git_switcher_enqueue_assets() {
 function git_switcher_ajax_fetch_repositories() {
 	git_switcher_assert_ajax_permissions();
 
-	$repositories = git_switcher_get_git_plugin_repositories();
+	// Return a shallow list quickly; branch details are loaded lazily.
+	$repositories = git_switcher_get_git_plugin_repositories_shallow();
 	wp_send_json_success(
 		array(
 			'repositories' => $repositories,
 		)
 	);
+}
+
+
+/**
+ * AJAX: fetch branch details for a single repository (lazy-loaded).
+ *
+ * @return void
+ */
+function git_switcher_ajax_fetch_repository() {
+	git_switcher_assert_ajax_permissions();
+
+	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce is verified in git_switcher_assert_ajax_permissions().
+	$repo_slug = isset( $_POST['repo'] ) ? sanitize_text_field( wp_unslash( $_POST['repo'] ) ) : '';
+	if ( '' === $repo_slug ) {
+		wp_send_json_error( array( 'message' => __( 'Missing repository.', 'git-switcher' ) ), 400 );
+	}
+
+	$repo_map = git_switcher_get_plugin_repo_map();
+	if ( ! isset( $repo_map[ $repo_slug ] ) ) {
+		wp_send_json_error( array( 'message' => __( 'Repository not found.', 'git-switcher' ) ), 404 );
+	}
+
+	$repo_path = $repo_map[ $repo_slug ]['path'];
+	if ( ! git_switcher_is_git_repo( $repo_path ) ) {
+		wp_send_json_error( array( 'message' => __( 'Selected plugin is not a git repository.', 'git-switcher' ) ), 400 );
+	}
+
+	// Refresh remote tracking refs to ensure ahead/behind is accurate.
+	git_switcher_fetch_remote_for_repo( $repo_path );
+
+	$branches = array();
+	$local_branches = git_switcher_get_local_branches( $repo_path );
+	foreach ( $local_branches as $b ) {
+		$info = git_switcher_get_branch_last_commit_info( $repo_path, $b );
+		$branches[] = array(
+			'name'             => $b,
+			'last_commit'      => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
+			'last_author'      => isset( $info['author'] ) ? $info['author'] : '',
+			'last_commit_show' => isset( $info['show_stat'] ) ? $info['show_stat'] : '',
+			'upstream'         => isset( $info['upstream_ref'] ) ? $info['upstream_ref'] : '',
+			'upstream_track'   => isset( $info['upstream_raw'] ) ? $info['upstream_raw'] : '',
+			'ahead'            => isset( $info['ahead'] ) ? (int) $info['ahead'] : 0,
+			'behind'           => isset( $info['behind'] ) ? (int) $info['behind'] : 0,
+			'in_sync'          => isset( $info['in_sync'] ) ? (bool) $info['in_sync'] : false,
+		);
+	}
+
+	wp_send_json_success( array( 'branches' => array_values( $branches ) ) );
+}
+
+
+/**
+ * Return a shallow list of git-enabled plugin repositories with current branch only.
+ *
+ * @return array<int, array<string, string>>
+ */
+function git_switcher_get_git_plugin_repositories_shallow() {
+	$repos = array();
+	$map   = git_switcher_get_plugin_repo_map();
+
+	foreach ( $map as $slug => $plugin ) {
+		$repo_path = $plugin['path'];
+		if ( ! git_switcher_is_git_repo( $repo_path ) ) {
+			continue;
+		}
+
+		$current_branch = git_switcher_get_current_branch( $repo_path );
+
+		$repos[] = array(
+			'slug'   => $slug,
+			'name'   => $plugin['name'],
+			'folder' => $plugin['folder'],
+			'branch' => $current_branch,
+		);
+	}
+
+	usort(
+		$repos,
+		static function ( $a, $b ) {
+			return strcasecmp( $a['folder'], $b['folder'] );
+		}
+	);
+
+	return $repos;
 }
 
 /**
