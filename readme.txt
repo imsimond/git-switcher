@@ -40,9 +40,11 @@ If not set, Git Switcher attempts these common paths automatically.
 
 == Notes ==
 
-- This plugin is intended for local development workflows.
-- Branch switching runs `git checkout` in selected plugin folders.
-- UI uses `@wordpress/components` `Popover` and `TabPanel`.
+This plugin has been designed to assist local development workflows.
+
+You can spin up a WordPress Playground instance, to see Git Switcher in action:
+
+https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/imsimond/git-switcher/refs/heads/main/blueprint.json
 
 ==  Changelog ==
 
