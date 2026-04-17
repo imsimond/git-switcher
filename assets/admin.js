@@ -393,12 +393,11 @@
                           const lastTs = branchObj.last_commit;
                           const lastAuthor = branchObj.last_author || "";
                           const lastShow = branchObj.last_commit_show || "";
-                          const ahead = branchObj.ahead || 0;
-                          const behind = branchObj.behind || 0;
+                          const ahead = Number(branchObj.ahead || 0);
+                          const behind = Number(branchObj.behind || 0);
                           const upstream = branchObj.upstream || "";
-                          const hasUpstream = !!upstream;
-                          const hasDivergence =
-                            hasUpstream && (ahead || behind);
+                          const upstreamTrack = branchObj.upstream_track || "";
+                          const hasDivergence = ahead > 0 || behind > 0;
                           const lastShowShort = lastShow
                             ? String(lastShow).split("\n")[0]
                             : "";
@@ -436,26 +435,36 @@
                                 "span",
                                 { className: "git-switcher-branch-left" },
                                 isCurrent ? "✓ " : "",
-                                branch,
-                                hasDivergence && ahead
+                                el(
+                                  "span",
+                                  { className: "git-switcher-branch-name" },
+                                  branch,
+                                ),
+                                hasDivergence && ahead > 0
                                   ? el(
                                       "span",
                                       {
                                         className:
                                           "git-switcher-badge git-switcher-ahead",
-                                        title: upstream || undefined,
+                                        title:
+                                          upstream ||
+                                          upstreamTrack ||
+                                          undefined,
                                         key: "ahead-" + key,
                                       },
                                       " ↑" + ahead,
                                     )
                                   : null,
-                                hasDivergence && behind
+                                hasDivergence && behind > 0
                                   ? el(
                                       "span",
                                       {
                                         className:
                                           "git-switcher-badge git-switcher-behind",
-                                        title: upstream || undefined,
+                                        title:
+                                          upstream ||
+                                          upstreamTrack ||
+                                          undefined,
                                         key: "behind-" + key,
                                       },
                                       " ↓" + behind,
