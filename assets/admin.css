@@ -238,6 +238,7 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   overflow: visible;
   position: relative;
+  z-index: 10001;
 }
 
 /* Allow the speech-bubble tail to render outside popover bounds */

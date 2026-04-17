@@ -24,7 +24,7 @@ add_action( 'wp_ajax_git_switcher_fetch_repository', 'git_switcher_ajax_fetch_re
 /**
  * Add the Git Switcher entry to the admin bar.
  *
- * @param WP_Admin_Bar $wp_admin_bar Admin bar instance.
+ * @param  WP_Admin_Bar $wp_admin_bar Admin bar instance.
  * @return void
  */
 function git_switcher_add_admin_bar_button( $wp_admin_bar ) {
@@ -37,8 +37,8 @@ function git_switcher_add_admin_bar_button( $wp_admin_bar ) {
 	}
 
 	$git_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="git-switcher-git-icon" viewBox="0 0 16 16">'
-		. '<path d="M15.698 7.287 8.712.302a1.03 1.03 0 0 0-1.457 0l-1.45 1.45 1.84 1.84a1.223 1.223 0 0 1 1.55 1.56l1.773 1.774a1.224 1.224 0 0 1 1.267 2.025 1.226 1.226 0 0 1-2.002-1.334L8.58 5.963v4.353a1.226 1.226 0 1 1-1.008-.036V5.887a1.226 1.226 0 0 1-.666-1.608L5.093 2.465l-4.79 4.79a1.03 1.03 0 0 0 0 1.457l6.986 6.986a1.03 1.03 0 0 0 1.457 0l6.953-6.953a1.03 1.03 0 0 0 0-1.457"/>'
-		. '</svg>';
+	. '<path d="M15.698 7.287 8.712.302a1.03 1.03 0 0 0-1.457 0l-1.45 1.45 1.84 1.84a1.223 1.223 0 0 1 1.55 1.56l1.773 1.774a1.224 1.224 0 0 1 1.267 2.025 1.226 1.226 0 0 1-2.002-1.334L8.58 5.963v4.353a1.226 1.226 0 1 1-1.008-.036V5.887a1.226 1.226 0 0 1-.666-1.608L5.093 2.465l-4.79 4.79a1.03 1.03 0 0 0 0 1.457l6.986 6.986a1.03 1.03 0 0 0 1.457 0l6.953-6.953a1.03 1.03 0 0 0 0-1.457"/>'
+	. '</svg>';
 
 	$title = '<span class="ab-icon">' . $git_svg . '</span><span class="ab-label">' . esc_html__( 'Git Switcher', 'git-switcher' ) . '</span>';
 
@@ -96,24 +96,26 @@ function git_switcher_enqueue_assets() {
 		$handle,
 		'gitSwitcherData',
 		array(
-			'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
-			'nonce'     => wp_create_nonce( 'git_switcher_nonce' ),
-			'gitBinary' => get_option( 'git_switcher_git_binary', '' ),
-			'i18n'      => array(
-				'buttonLabel'    => __( 'Git Switcher', 'git-switcher' ),
-				'tabPlugins'     => __( 'Plugins', 'git-switcher' ),
-				'tabSettings'    => __( 'Settings', 'git-switcher' ),
-				'loading'        => __( 'Loading repositories...', 'git-switcher' ),
-				'noRepositories' => __( 'No git-managed plugin folders found.', 'git-switcher' ),
-				'branches'       => __( 'Branches', 'git-switcher' ),
-				'switching'      => __( 'Switching...', 'git-switcher' ),
-				'switched'       => __( 'Branch switched.', 'git-switcher' ),
-				'gitBinaryLabel' => __( 'Git binary path', 'git-switcher' ),
-				'saveSettings'   => __( 'Save settings', 'git-switcher' ),
-				'settingsSaved'  => __( 'Settings saved.', 'git-switcher' ),
-				'manageHint'     => __( 'Use an absolute path, for example /usr/bin/git or /opt/homebrew/bin/git.', 'git-switcher' ),
-				'activeBranch'   => __( 'Active', 'git-switcher' ),
-				'current'        => __( 'Current', 'git-switcher' ),
+			'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
+			'nonce'              => wp_create_nonce( 'git_switcher_nonce' ),
+			'gitBinary'          => get_option( 'git_switcher_git_binary', '' ),
+			'shellExecAvailable' => function_exists( 'shell_exec' ),
+			'i18n'               => array(
+				'buttonLabel'          => __( 'Git Switcher', 'git-switcher' ),
+				'tabPlugins'           => __( 'Plugins', 'git-switcher' ),
+				'tabSettings'          => __( 'Settings', 'git-switcher' ),
+				'loading'              => __( 'Loading repositories...', 'git-switcher' ),
+				'noRepositories'       => __( 'No git-managed plugin folders found.', 'git-switcher' ),
+				'branches'             => __( 'Branches', 'git-switcher' ),
+				'switching'            => __( 'Switching...', 'git-switcher' ),
+				'switched'             => __( 'Branch switched.', 'git-switcher' ),
+				'gitBinaryLabel'       => __( 'Git binary path', 'git-switcher' ),
+				'saveSettings'         => __( 'Save settings', 'git-switcher' ),
+				'settingsSaved'        => __( 'Settings saved.', 'git-switcher' ),
+				'manageHint'           => __( 'Use an absolute path, for example /usr/bin/git or /opt/homebrew/bin/git.', 'git-switcher' ),
+				'activeBranch'         => __( 'Active', 'git-switcher' ),
+				'current'              => __( 'Current', 'git-switcher' ),
+				'shellExecUnavailable' => __( 'shell_exec is not available on this installation.', 'git-switcher' ),
 			),
 		)
 	);
@@ -164,10 +166,10 @@ function git_switcher_ajax_fetch_repository() {
 	// Refresh remote tracking refs to ensure ahead/behind is accurate.
 	git_switcher_fetch_remote_for_repo( $repo_path );
 
-	$branches = array();
+	$branches       = array();
 	$local_branches = git_switcher_get_local_branches( $repo_path );
 	foreach ( $local_branches as $b ) {
-		$info = git_switcher_get_branch_last_commit_info( $repo_path, $b );
+		$info       = git_switcher_get_branch_last_commit_info( $repo_path, $b );
 		$branches[] = array(
 			'name'             => $b,
 			'last_commit'      => isset( $info['timestamp'] ) ? $info['timestamp'] : '',
@@ -415,7 +417,7 @@ function git_switcher_get_plugin_repo_map() {
 /**
  * Determine whether a path appears to be a git repository.
  *
- * @param string $repo_path Repository path.
+ * @param  string $repo_path Repository path.
  * @return bool
  */
 function git_switcher_is_git_repo( $repo_path ) {
@@ -425,7 +427,7 @@ function git_switcher_is_git_repo( $repo_path ) {
 /**
  * Resolve git directory for a repository (supports worktrees).
  *
- * @param string $repo_path Repository path.
+ * @param  string $repo_path Repository path.
  * @return string Absolute git dir or empty string.
  */
 function git_switcher_get_git_dir( $repo_path ) {
@@ -458,7 +460,7 @@ function git_switcher_get_git_dir( $repo_path ) {
 /**
  * Get current branch (or short SHA for detached HEAD) for repository.
  *
- * @param string $repo_path Repository path.
+ * @param  string $repo_path Repository path.
  * @return string
  */
 function git_switcher_get_current_branch( $repo_path ) {
@@ -486,28 +488,13 @@ function git_switcher_get_current_branch( $repo_path ) {
 		return substr( $git_head, 0, 7 );
 	}
 
-	$git_binary = git_switcher_get_git_binary();
-	if ( '' === $git_binary ) {
-		return '';
-	}
-
-	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' rev-parse --abbrev-ref HEAD 2>/dev/null';
-	$raw = shell_exec( $cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-	$out = trim( (string) $raw );
-
-	if ( '' === $out ) {
-		$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' rev-parse --short HEAD 2>/dev/null';
-		$raw = shell_exec( $cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-		$out = trim( (string) $raw );
-	}
-
-	return $out;
+	return '';
 }
 
 /**
  * Get local branches for a repository.
  *
- * @param string $repo_path Repository path.
+ * @param  string $repo_path Repository path.
  * @return string[]
  */
 function git_switcher_get_local_branches( $repo_path ) {
@@ -547,23 +534,7 @@ function git_switcher_get_local_branches( $repo_path ) {
 	$branches = array_values( array_unique( $branches ) );
 	sort( $branches );
 
-	if ( ! empty( $branches ) ) {
-		return $branches;
-	}
-
-	$git_binary = git_switcher_get_git_binary();
-	if ( '' === $git_binary ) {
-		return array();
-	}
-
-	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format="%(refname:short)" refs/heads 2>/dev/null';
-	$raw = shell_exec( $cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-	if ( ! $raw ) {
-		return array();
-	}
-
-	$branches = array_filter( array_map( 'trim', explode( "\n", (string) $raw ) ) );
-	return array_values( $branches );
+	return $branches;
 }
 
 
@@ -574,60 +545,27 @@ function git_switcher_get_local_branches( $repo_path ) {
  * commit timestamp and the committer's name. Returns an empty array on
  * failure.
  *
- * @param string $repo_path Absolute filesystem path to the repository.
- * @param string $branch    Branch name or ref to inspect.
+ * @param  string $repo_path Absolute filesystem path to the repository.
+ * @param  string $branch    Branch name or ref to inspect.
  * @return array{timestamp:int|string,author:string}|array{} Array with
  *     'timestamp' (int unix timestamp) and 'author' (string committer name),
  *     or an empty array on failure.
  */
-function git_switcher_get_branch_last_commit_info( $repo_path, $branch ) {
-	$git_binary = git_switcher_get_git_binary();
-	if ( '' === $git_binary ) {
-		return array();
-	}
-
-	// Use git show to get commit SHA, timestamp and author name separated by a \x01 marker.
-	$format = '%H%x01%ct%x01%an';
-	$cmd    = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' show -s --format=' . escapeshellarg( $format ) . ' ' . escapeshellarg( $branch ) . ' 2>/dev/null';
-	$raw    = shell_exec( $cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-	$out    = trim( (string) $raw );
-	if ( '' === $out ) {
-		return array();
-	}
-
-	$parts  = explode( "\x01", $out );
-	$sha    = isset( $parts[0] ) ? trim( $parts[0] ) : '';
-	$ts     = isset( $parts[1] ) && ctype_digit( $parts[1] ) ? (int) $parts[1] : '';
-	$author = isset( $parts[2] ) ? trim( $parts[2] ) : '';
-
-	$show_stat = git_switcher_get_commit_show_stat( $repo_path, $sha );
-
-	$track = git_switcher_get_branch_track_counts( $repo_path, $branch );
-
-	return array(
-		'sha'          => $sha,
-		'timestamp'    => $ts,
-		'author'       => $author,
-		'show_stat'    => $show_stat,
-		'upstream_ref' => isset( $track['upstream_ref'] ) ? $track['upstream_ref'] : '',
-		'upstream_raw' => isset( $track['raw'] ) ? $track['raw'] : '',
-		'ahead'        => isset( $track['ahead'] ) ? $track['ahead'] : 0,
-		'behind'       => isset( $track['behind'] ) ? $track['behind'] : 0,
-		'in_sync'      => isset( $track['in_sync'] ) ? (bool) $track['in_sync'] : false,
-		'gone'         => isset( $track['gone'] ) ? $track['gone'] : false,
-	);
-}
 
 
 /**
  * Get commit details including `git show --stat` and shortstat summary line.
  *
- * @param string $repo_path Absolute path to repository.
- * @param string $commit_ref Commit SHA or ref.
+ * @param  string $repo_path  Absolute path to repository.
+ * @param  string $commit_ref Commit SHA or ref.
  * @return string Commit info and stat, or empty string on failure.
  */
 function git_switcher_get_commit_show_stat( $repo_path, $commit_ref ) {
 	if ( '' === $commit_ref ) {
+		return '';
+	}
+
+	if ( ! function_exists( 'shell_exec' ) ) {
 		return '';
 	}
 
@@ -661,52 +599,131 @@ function git_switcher_get_commit_show_stat( $repo_path, $commit_ref ) {
  * Uses git's "%(upstream:track)" format to obtain a short upstream tracking
  * description such as "[ahead 1]", "[behind 2]", or "[ahead 1, behind 2]".
  *
- * @param string $repo_path Absolute path to repository.
- * @param string $branch    Branch name.
  * @return array{upstream_ref:string,raw:string,ahead:int,behind:int,in_sync:bool,gone:bool}
  */
-function git_switcher_get_branch_track_counts( $repo_path, $branch ) {
-	$git_binary = git_switcher_get_git_binary();
-	if ( '' === $git_binary ) {
-		return array(
-			'upstream_ref' => '',
-			'raw'          => '',
-			'ahead'        => 0,
-			'behind'       => 0,
-			'in_sync'      => false,
-			'gone'         => false,
-		);
+
+// Removed: git_switcher_get_branch_track_counts() was unused; tracking
+// counts are not currently computed without shell access.
+
+/**
+ * Read a git object from the repository.
+ *
+ * @param  string $repo_path Absolute path to repository.
+ * @param  string $sha       SHA hash of the object.
+ * @return string|false     Decompressed object content or false on failure.
+ */
+function git_switcher_read_git_object( $repo_path, $sha ) {
+	$git_dir = git_switcher_get_git_dir( $repo_path );
+	if ( '' === $git_dir ) {
+		return false;
 	}
 
-	$upstream_cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format=' . escapeshellarg( '%(upstream:short)' ) . ' ' . escapeshellarg( 'refs/heads/' . $branch ) . ' 2>/dev/null';
-	$track_cmd    = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' for-each-ref --format=' . escapeshellarg( '%(upstream:track)' ) . ' ' . escapeshellarg( 'refs/heads/' . $branch ) . ' 2>/dev/null';
-
-	$upstream_ref = trim( (string) shell_exec( $upstream_cmd ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-	$raw          = trim( (string) shell_exec( $track_cmd ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-
-	$ahead  = 0;
-	$behind = 0;
-	$gone   = false;
-
-	if ( preg_match( '/ahead\s+(\d+)/', $raw, $m ) ) {
-		$ahead = (int) $m[1];
-	}
-	if ( preg_match( '/behind\s+(\d+)/', $raw, $m ) ) {
-		$behind = (int) $m[1];
-	}
-	if ( false !== strpos( $raw, 'gone' ) ) {
-		$gone = true;
+	$path = $git_dir . '/objects/' . substr( $sha, 0, 2 ) . '/' . substr( $sha, 2 );
+	if ( ! file_exists( $path ) ) {
+		return false;
 	}
 
-	$in_sync = '' !== $upstream_ref && 0 === $ahead && 0 === $behind && ! $gone;
+	$data = git_switcher_read_local_file( $path );
+	if ( false === $data ) {
+		return false;
+	}
+
+	$decompressed = gzuncompress( $data );
+	if ( false === $decompressed ) {
+		return false;
+	}
+
+	return $decompressed;
+}
+
+/**
+ * Get last commit unix timestamp and author name for a branch.
+ *
+ * Reads the most recent commit on the specified branch and returns the
+ * commit timestamp and the committer's name. Returns an empty array on
+ * failure.
+ *
+ * @param  string $repo_path Absolute filesystem path to the repository.
+ * @param  string $branch    Branch name or ref to inspect.
+ * @return array{timestamp:int|string,author:string}|array{} Array with
+ *     'timestamp' (int unix timestamp) and 'author' (string committer name),
+ *     or an empty array on failure.
+ */
+function git_switcher_get_branch_last_commit_info( $repo_path, $branch ) {
+	$git_dir = git_switcher_get_git_dir( $repo_path );
+	if ( '' === $git_dir ) {
+		return array();
+	}
+
+	$ref_path = $git_dir . '/refs/heads/' . $branch;
+	$sha      = '';
+	if ( file_exists( $ref_path ) ) {
+		$ref_contents = git_switcher_read_local_file( $ref_path );
+		if ( false !== $ref_contents ) {
+			$sha = trim( $ref_contents );
+		}
+	} else {
+		// Check packed-refs.
+		$packed_refs_path = $git_dir . '/packed-refs';
+		if ( file_exists( $packed_refs_path ) ) {
+			$lines = file( $packed_refs_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+			if ( false !== $lines ) {
+				$ref = 'refs/heads/' . $branch;
+				foreach ( $lines as $line ) {
+					if ( isset( $line[0] ) && '#' === $line[0] ) {
+						continue;
+					}
+					$parts = preg_split( '/\s+/', $line );
+					if ( count( $parts ) >= 2 && $parts[1] === $ref ) {
+						$sha = trim( $parts[0] );
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	if ( '' === $sha || ! ctype_xdigit( $sha ) ) {
+		return array();
+	}
+
+	$object = git_switcher_read_git_object( $repo_path, $sha );
+	if ( false === $object ) {
+		return array();
+	}
+
+	$null_pos = strpos( $object, "\0" );
+	if ( false === $null_pos ) {
+		return array();
+	}
+	$content = substr( $object, $null_pos + 1 );
+	$lines   = explode( "\n", $content );
+
+	$author    = '';
+	$timestamp = 0;
+
+	foreach ( $lines as $line ) {
+		if ( 0 === strpos( $line, 'author ' ) ) {
+			// Format: author Name <email> 1234567890 +0000.
+			if ( preg_match( '/^author (.+) <[^>]+> (\d+) .+$/', $line, $matches ) ) {
+				$author    = trim( $matches[1] );
+				$timestamp = (int) $matches[2];
+			}
+			break;
+		}
+	}
 
 	return array(
-		'upstream_ref' => $upstream_ref,
-		'raw'          => $raw,
-		'ahead'        => $ahead,
-		'behind'       => $behind,
-		'in_sync'      => $in_sync,
-		'gone'         => $gone,
+		'sha'          => $sha,
+		'timestamp'    => $timestamp,
+		'author'       => $author,
+		'show_stat'    => git_switcher_get_commit_show_stat( $repo_path, $sha ),
+		'upstream_ref' => '',
+		'upstream_raw' => '',
+		'ahead'        => 0,
+		'behind'       => 0,
+		'in_sync'      => false,
+		'gone'         => false,
 	);
 }
 
@@ -746,7 +763,7 @@ function git_switcher_get_git_binary() {
  * This runs a quiet `git fetch` using the configured git binary. Failures
  * are ignored to avoid breaking the UI if fetch cannot run.
  *
- * @param string $repo_path Absolute path to repository.
+ * @param  string $repo_path Absolute path to repository.
  * @return void
  */
 function git_switcher_fetch_remote_for_repo( $repo_path ) {
@@ -758,13 +775,13 @@ function git_switcher_fetch_remote_for_repo( $repo_path ) {
 	// Fetch tags and prune deleted refs from origin; keep this quiet.
 	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' fetch --tags --prune origin 2>/dev/null';
 	// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-	@shell_exec( $cmd );
+	shell_exec( $cmd );
 }
 
 /**
  * Read local file contents safely.
  *
- * @param string $path Absolute local path.
+ * @param  string $path Absolute local path.
  * @return string|false
  */
 function git_switcher_read_local_file( $path ) {
@@ -775,7 +792,7 @@ function git_switcher_read_local_file( $path ) {
 	global $wp_filesystem;
 
 	if ( ! isset( $wp_filesystem ) || ! is_object( $wp_filesystem ) ) {
-		require_once ABSPATH . 'wp-admin/includes/file.php';
+		include_once ABSPATH . 'wp-admin/includes/file.php';
 		WP_Filesystem();
 	}
 

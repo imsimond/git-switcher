@@ -283,6 +283,14 @@
     }
 
     function switchBranch(repoSlug, branch) {
+      if (!gitSwitcherData.shellExecAvailable) {
+        setErrorMsg(
+          i18n.shellExecUnavailable ||
+            "shell_exec is not available on this installation.",
+        );
+        return;
+      }
+
       const key = repoSlug + ":" + branch;
       setSwitchingKey(key);
       setErrorMsg("");
@@ -420,6 +428,17 @@
               return el(
                 "div",
                 { className: "git-switcher-settings" },
+                !gitSwitcherData.shellExecAvailable
+                  ? el(
+                      Notice,
+                      {
+                        status: "warning",
+                        isDismissible: false,
+                      },
+                      i18n.shellExecUnavailable ||
+                        "shell_exec is not available on this installation.",
+                    )
+                  : null,
                 el(TextControl, {
                   label: i18n.gitBinaryLabel || "Git binary path",
                   value: gitBinary,
@@ -545,9 +564,14 @@
                                     "git-switcher-branch-btn" +
                                     (isCurrent ? " is-current" : ""),
                                   onClick: function () {
+                                    if (!gitSwitcherData.shellExecAvailable) {
+                                      return;
+                                    }
                                     switchBranch(repo.slug, branch);
                                   },
                                   disabled: switchingKey === key,
+                                  "aria-disabled":
+                                    !gitSwitcherData.shellExecAvailable,
                                   // no tooltip
                                   onMouseEnter: function (e) {
                                     if (lastShow) {

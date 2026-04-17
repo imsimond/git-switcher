@@ -5,14 +5,43 @@
     {
       "step": "installPlugin",
       "pluginData": {
-        "resource": "git:directory",
-        "url": "https://github.com/imsimond/git-switcher",
+        "resource": "github",
+        "repository": "imsimond/git-switcher",
         "ref": "main"
       }
     },
     {
-      "step": "runPHP",
-      "code": "<?php require_once '/wordpress/wp-load.php'; $path = ABSPATH . 'wp-content/plugins/debug-bar'; if (!file_exists($path)) { exec(\"git clone https://github.com/WordPress/debug-bar.git $path && cd $path && git checkout HEAD~1\"); } ?>"
+      "step": "mkdir",
+      "path": "wp-content/plugins/fake-plugin/.git/refs/heads"
+    },
+    {
+      "step": "mkdir",
+      "path": "wp-content/plugins/fake-plugin/.git/logs/refs/heads"
+    },
+    {
+      "step": "writeFile",
+      "path": "wp-content/plugins/fake-plugin/fake-plugin.php",
+      "data": "<?php\n/*\nPlugin Name: Fake Plugin\nVersion: 1.0\nDescription: A dummy plugin to test Git Switcher.\n*/"
+    },
+    {
+      "step": "writeFile",
+      "path": "wp-content/plugins/fake-plugin/.git/HEAD",
+      "data": "ref: refs/heads/feature-alpha\n"
+    },
+    {
+      "step": "writeFile",
+      "path": "wp-content/plugins/fake-plugin/.git/refs/heads/main",
+      "data": "e99a18c428cb38d5425b5acbc47ea22bc5448af3"
+    },
+    {
+      "step": "writeFile",
+      "path": "wp-content/plugins/fake-plugin/.git/refs/heads/feature-alpha",
+      "data": "a1b2c3d4e5f6g7h8i9j0"
+    },
+    {
+      "step": "writeFile",
+      "path": "wp-content/plugins/fake-plugin/.git/logs/refs/heads/feature-alpha",
+      "data": "0000000000000000000000000000000000000000 a1b2c3d4e5f6g7h8i9j0 Admin <admin@example.com> 1713360000 +0000\tcommit: Initial commit\na1b2c3d4e5f6g7h8i9j0 b2c3d4e5f6g7h8i9j0a1 Admin <admin@example.com> 1713363600 +0000\tcommit: Add new feature\nb2c3d4e5f6g7h8i9j0a1 c3d4e5f6g7h8i9j0a1b2 Admin <admin@example.com> 1713367200 +0000\tcommit: Fixed CSS bug\nc3d4e5f6g7h8i9j0a1b2 d4e5f6g7h8i9j0a1b2c3 Admin <admin@example.com> 1713370800 +0000\tcommit: HEAD commit (the one we are behind)"
     }
   ]
 }
