@@ -320,19 +320,14 @@
         event.preventDefault();
         event.stopPropagation();
         setIsOpen(function (prev) {
-          const next = !prev;
-          const now = Date.now();
-          // prevent immediate re-open race
-          if (next) {
-            if (now - lastToggleRef.current < 250) {
-              return prev;
-            }
-            lastToggleRef.current = now;
-            loadRepositories();
+          if (prev) {
+            // closing
+            return false;
           } else {
-            lastToggleRef.current = now;
+            // opening
+            loadRepositories();
+            return true;
           }
-          return next;
         });
       };
 
@@ -350,6 +345,47 @@
       };
     }, []);
 
+    useEffect(
+      function () {
+        if (!isOpen) {
+          // Reset state when popover closes (via button or outside click)
+          setExpanded({});
+          setShowStat(false);
+          setStatAnchor(null);
+          setStatContent("");
+          setRepositories(function (prev) {
+            return (prev || []).map(function (r) {
+              return Object.assign({}, r, {
+                branches: null,
+                loadingBranches: false,
+              });
+            });
+          });
+        }
+      },
+      [isOpen],
+    );
+
+    useEffect(
+      function () {
+        if (!isOpen) return;
+
+        const handleClickOutside = function (event) {
+          const anchor = document.getElementById("wp-admin-bar-git-switcher");
+          if (anchor && anchor.contains(event.target)) return;
+          const popover = document.querySelector(".git-switcher-popover");
+          if (popover && popover.contains(event.target)) return;
+          setIsOpen(false);
+        };
+
+        document.addEventListener("click", handleClickOutside);
+        return function () {
+          document.removeEventListener("click", handleClickOutside);
+        };
+      },
+      [isOpen],
+    );
+
     const anchor = document.getElementById("wp-admin-bar-git-switcher");
     if (!isOpen || !anchor) {
       return null;
@@ -360,10 +396,6 @@
       {
         anchor: anchor,
         placement: "bottom-start",
-        onClose: function () {
-          lastToggleRef.current = Date.now();
-          setIsOpen(false);
-        },
       },
       el(
         "div",
