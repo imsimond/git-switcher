@@ -180,13 +180,46 @@
       setLoading(true);
       return postAjax("git_switcher_fetch_repositories", {})
         .then(function (data) {
-          setRepositories(data.repositories || []);
+          // Initialize repo items with no branches yet; we'll fetch branches lazily
+          const repos = (data.repositories || []).map(function (r) {
+            return Object.assign({}, r, { branches: null, loadingBranches: false });
+          });
+          setRepositories(repos);
         })
         .catch(function (err) {
           setErrorMsg(err.message);
         })
         .finally(function () {
           setLoading(false);
+        });
+    }
+
+    function loadRepositoryBranches(repoSlug) {
+      setRepositories(function (prev) {
+        return prev.map(function (r) {
+          if (r.slug !== repoSlug) return r;
+          return Object.assign({}, r, { loadingBranches: true });
+        });
+      });
+
+      return postAjax("git_switcher_fetch_repository", { repo: repoSlug })
+        .then(function (data) {
+          const branches = data.branches || [];
+          setRepositories(function (prev) {
+            return prev.map(function (r) {
+              if (r.slug !== repoSlug) return r;
+              return Object.assign({}, r, { branches: branches, loadingBranches: false });
+            });
+          });
+        })
+        .catch(function (err) {
+          setRepositories(function (prev) {
+            return prev.map(function (r) {
+              if (r.slug !== repoSlug) return r;
+              return Object.assign({}, r, { branches: [], loadingBranches: false });
+            });
+          });
+          setErrorMsg(err.message);
         });
     }
 
