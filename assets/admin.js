@@ -6,10 +6,6 @@
   const el = window.wp.element.createElement;
   const render = window.wp.element.render;
   const useState = window.wp.element.useState;
-  const useEffect = window.wp.element.useEffect;
-  const useRef = window.wp.element.useRef;
-  const components = window.wp.components;
-
   const Popover = components.Popover;
   const Button = components.Button;
   const Spinner = components.Spinner;
