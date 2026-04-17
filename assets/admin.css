@@ -143,6 +143,17 @@
   font-size: 13px;
 }
 
+/* Nudge spinner graphics slightly to vertically align with text across themes */
+.git-switcher-branches-loading svg,
+.git-switcher-branches-loading .components-spinner__rotator,
+.git-switcher-branches-loading .components-spinner {
+  margin-top: -2px;
+}
+
+.git-switcher-loading-text {
+  line-height: 16px;
+}
+
 .git-switcher-branches-empty {
   padding: 8px;
   color: #646970;
