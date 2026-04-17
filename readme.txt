@@ -38,11 +38,9 @@ Use the popover `Settings` tab to set git binary path (optional):
 
 If not set, Git Switcher attempts these common paths automatically.
 
-== Notes ==
+== Testing ==
 
-This plugin has been designed to assist local development workflows.
-
-You can spin up a WordPress Playground instance, to see Git Switcher in action:
+Click the link below to spin up a WordPress Playground instance, and see Git Switcher in action. Note: Playground does not include a git binary, so you can preview most of the UI, but not all of the functionality.
 
 https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/imsimond/git-switcher/refs/heads/main/blueprint.json
 
