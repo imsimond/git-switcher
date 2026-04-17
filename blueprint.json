@@ -12,7 +12,7 @@
     },
     {
       "step": "runPHP",
-      "code": "<?php $path = ABSPATH . 'wp-content/plugins/debug-bar'; if (!file_exists($path)) { exec(\"git clone https://github.com/WordPress/debug-bar.git $path && cd $path && git checkout HEAD~1\"); } ?>"
+      "code": "<?php require_once '/wordpress/wp-load.php'; $path = ABSPATH . 'wp-content/plugins/debug-bar'; if (!file_exists($path)) { exec(\"git clone https://github.com/WordPress/debug-bar.git $path && cd $path && git checkout HEAD~1\"); } ?>"
     }
   ]
 }
