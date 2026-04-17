@@ -6,6 +6,9 @@
   const el = window.wp.element.createElement;
   const render = window.wp.element.render;
   const useState = window.wp.element.useState;
+  const useEffect = window.wp.element.useEffect;
+  const useRef = window.wp.element.useRef;
+  const components = window.wp.components;
   const Popover = components.Popover;
   const Button = components.Button;
   const Spinner = components.Spinner;
@@ -176,11 +179,33 @@
       setLoading(true);
       return postAjax("git_switcher_fetch_repositories", {})
         .then(function (data) {
-          // Initialize repo items with no branches yet; we'll fetch branches lazily
-          const repos = (data.repositories || []).map(function (r) {
-            return Object.assign({}, r, { branches: null, loadingBranches: false });
+          // Merge shallow list with any existing cached repo branch state so
+          // previously-loaded branches remain available and we don't show
+          // "Expand to load branches" unnecessarily.
+          const incoming = data.repositories || [];
+          setRepositories(function (prev) {
+            const prevMap = (prev || []).reduce(function (acc, item) {
+              acc[item.slug] = item;
+              return acc;
+            }, {});
+
+            return incoming.map(function (r) {
+              const existing = prevMap[r.slug];
+              if (existing) {
+                return Object.assign({}, r, {
+                  branches:
+                    typeof existing.branches === "undefined"
+                      ? null
+                      : existing.branches,
+                  loadingBranches: !!existing.loadingBranches,
+                });
+              }
+              return Object.assign({}, r, {
+                branches: null,
+                loadingBranches: false,
+              });
+            });
           });
-          setRepositories(repos);
         })
         .catch(function (err) {
           setErrorMsg(err.message);
@@ -204,7 +229,10 @@
           setRepositories(function (prev) {
             return prev.map(function (r) {
               if (r.slug !== repoSlug) return r;
-              return Object.assign({}, r, { branches: branches, loadingBranches: false });
+              return Object.assign({}, r, {
+                branches: branches,
+                loadingBranches: false,
+              });
             });
           });
         })
@@ -212,7 +240,10 @@
           setRepositories(function (prev) {
             return prev.map(function (r) {
               if (r.slug !== repoSlug) return r;
-              return Object.assign({}, r, { branches: [], loadingBranches: false });
+              return Object.assign({}, r, {
+                branches: [],
+                loadingBranches: false,
+              });
             });
           });
           setErrorMsg(err.message);
@@ -225,13 +256,13 @@
         const willOpen = !prev[slug];
         next[slug] = willOpen;
         // If opening and branches are not yet loaded, start loading them lazily.
-        if ( willOpen ) {
+        if (willOpen) {
           const repo = repositories.find(function (r) {
             return r.slug === slug;
           });
-          if ( repo && repo.branches === null && !repo.loadingBranches ) {
+          if (repo && repo.branches === null && !repo.loadingBranches) {
             // kick off async load (no need to await here)
-            loadRepositoryBranches( slug );
+            loadRepositoryBranches(slug);
           }
         }
         return next;
@@ -453,139 +484,141 @@
                           { className: "git-switcher-branches" },
                           (repo.branches || []).map(function (branchObj) {
                             const branch = branchObj.name;
-                          const lastTs = branchObj.last_commit;
-                          const lastAuthor = branchObj.last_author || "";
-                          const lastShow = branchObj.last_commit_show || "";
-                          const ahead = Number(branchObj.ahead || 0);
-                          const behind = Number(branchObj.behind || 0);
-                          const upstream = branchObj.upstream || "";
-                          const upstreamTrack = branchObj.upstream_track || "";
-                          const hasDivergence = ahead > 0 || behind > 0;
-                          const lastShowShort = lastShow
-                            ? String(lastShow).split("\n")[0]
-                            : "";
-                          const isCurrent =
-                            normalizeBranch(branch) ===
-                            normalizeBranch(repo.branch);
-                          const key = repo.slug + ":" + branch;
-                          return el(
-                            "li",
-                            { key: key },
-                            el(
-                              "button",
-                              {
-                                type: "button",
-                                className:
-                                  "git-switcher-branch-btn" +
-                                  (isCurrent ? " is-current" : ""),
-                                onClick: function () {
-                                  switchBranch(repo.slug, branch);
-                                },
-                                disabled: switchingKey === key,
-                                // no tooltip
-                                onMouseEnter: function (e) {
-                                  if (lastShow) {
-                                    setStatAnchor(e.currentTarget);
-                                    setStatContent(lastShow);
-                                    setShowStat(true);
-                                  }
-                                },
-                                onMouseLeave: function () {
-                                  setShowStat(false);
-                                },
-                              },
+                            const lastTs = branchObj.last_commit;
+                            const lastAuthor = branchObj.last_author || "";
+                            const lastShow = branchObj.last_commit_show || "";
+                            const ahead = Number(branchObj.ahead || 0);
+                            const behind = Number(branchObj.behind || 0);
+                            const upstream = branchObj.upstream || "";
+                            const upstreamTrack =
+                              branchObj.upstream_track || "";
+                            const hasDivergence = ahead > 0 || behind > 0;
+                            const lastShowShort = lastShow
+                              ? String(lastShow).split("\n")[0]
+                              : "";
+                            const isCurrent =
+                              normalizeBranch(branch) ===
+                              normalizeBranch(repo.branch);
+                            const key = repo.slug + ":" + branch;
+                            return el(
+                              "li",
+                              { key: key },
                               el(
-                                "span",
-                                { className: "git-switcher-branch-left" },
-                                isCurrent ? "✓ " : "",
+                                "button",
+                                {
+                                  type: "button",
+                                  className:
+                                    "git-switcher-branch-btn" +
+                                    (isCurrent ? " is-current" : ""),
+                                  onClick: function () {
+                                    switchBranch(repo.slug, branch);
+                                  },
+                                  disabled: switchingKey === key,
+                                  // no tooltip
+                                  onMouseEnter: function (e) {
+                                    if (lastShow) {
+                                      setStatAnchor(e.currentTarget);
+                                      setStatContent(lastShow);
+                                      setShowStat(true);
+                                    }
+                                  },
+                                  onMouseLeave: function () {
+                                    setShowStat(false);
+                                  },
+                                },
                                 el(
                                   "span",
-                                  { className: "git-switcher-branch-name" },
-                                  branch,
-                                ),
-                                hasDivergence && ahead > 0
-                                  ? el(
-                                      "span",
-                                      {
-                                        className:
-                                          "git-switcher-badge git-switcher-ahead",
-                                        title:
-                                          upstream ||
-                                          upstreamTrack ||
-                                          undefined,
-                                        key: "ahead-" + key,
-                                      },
-                                      " ↑" + ahead,
-                                    )
-                                  : null,
-                                hasDivergence && behind > 0
-                                  ? el(
-                                      "span",
-                                      {
-                                        className:
-                                          "git-switcher-badge git-switcher-behind",
-                                        title:
-                                          upstream ||
-                                          upstreamTrack ||
-                                          undefined,
-                                        key: "behind-" + key,
-                                      },
-                                      " ↓" + behind,
-                                    )
-                                  : null,
-                              ),
-                              el(
-                                "span",
-                                {
-                                  className: "git-switcher-time",
-                                  title: lastTs
-                                    ? new Date(
-                                        Number(lastTs) * 1000,
-                                      ).toLocaleString()
-                                    : "",
-                                },
-                                lastTs ? formatRelative(lastTs) : "",
-                                lastAuthor
-                                  ? el(
-                                      "span",
-                                      { className: "git-switcher-author" },
-                                      " · " + lastAuthor,
-                                    )
-                                  : null,
-                              ),
-                              switchingKey === key
-                                ? el(
+                                  { className: "git-switcher-branch-left" },
+                                  isCurrent ? "✓ " : "",
+                                  el(
                                     "span",
-                                    { className: "git-switcher-spinner" },
-                                    el(Spinner, {}),
+                                    { className: "git-switcher-branch-name" },
+                                    branch,
+                                  ),
+                                  hasDivergence && ahead > 0
+                                    ? el(
+                                        "span",
+                                        {
+                                          className:
+                                            "git-switcher-badge git-switcher-ahead",
+                                          title:
+                                            upstream ||
+                                            upstreamTrack ||
+                                            undefined,
+                                          key: "ahead-" + key,
+                                        },
+                                        " ↑" + ahead,
+                                      )
+                                    : null,
+                                  hasDivergence && behind > 0
+                                    ? el(
+                                        "span",
+                                        {
+                                          className:
+                                            "git-switcher-badge git-switcher-behind",
+                                          title:
+                                            upstream ||
+                                            upstreamTrack ||
+                                            undefined,
+                                          key: "behind-" + key,
+                                        },
+                                        " ↓" + behind,
+                                      )
+                                    : null,
+                                ),
+                                el(
+                                  "span",
+                                  {
+                                    className: "git-switcher-time",
+                                    title: lastTs
+                                      ? new Date(
+                                          Number(lastTs) * 1000,
+                                        ).toLocaleString()
+                                      : "",
+                                  },
+                                  lastTs ? formatRelative(lastTs) : "",
+                                  lastAuthor
+                                    ? el(
+                                        "span",
+                                        { className: "git-switcher-author" },
+                                        " · " + lastAuthor,
+                                      )
+                                    : null,
+                                ),
+                                switchingKey === key
+                                  ? el(
+                                      "span",
+                                      { className: "git-switcher-spinner" },
+                                      el(Spinner, {}),
+                                    )
+                                  : null,
+                              ),
+                              showStat && statAnchor
+                                ? el(
+                                    Popover,
+                                    {
+                                      anchor: statAnchor,
+                                      placement: "right-start",
+                                      className:
+                                        "git-switcher-showstat-popover",
+                                      onClose: function () {
+                                        setShowStat(false);
+                                      },
+                                    },
+                                    el(
+                                      "div",
+                                      { className: "git-switcher-showstat" },
+                                      el(
+                                        "pre",
+                                        null,
+                                        renderShowStatContent(statContent),
+                                      ),
+                                    ),
                                   )
                                 : null,
-                            ),
-                            showStat && statAnchor
-                              ? el(
-                                  Popover,
-                                  {
-                                    anchor: statAnchor,
-                                    placement: "right-start",
-                                    className: "git-switcher-showstat-popover",
-                                    onClose: function () {
-                                      setShowStat(false);
-                                    },
-                                  },
-                                  el(
-                                    "div",
-                                    { className: "git-switcher-showstat" },
-                                    el(
-                                      "pre",
-                                      null,
-                                      renderShowStatContent(statContent),
-                                    ),
-                                  ),
-                                )
-                              : null,
-                          );
-                        }),
-                      )
+                            );
+                          }),
+                        )
                     : null,
                 );
               }),
