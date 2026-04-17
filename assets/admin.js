@@ -226,7 +226,18 @@
     function toggleRepo(slug) {
       setExpanded(function (prev) {
         const next = Object.assign({}, prev);
-        next[slug] = !next[slug];
+        const willOpen = !prev[slug];
+        next[slug] = willOpen;
+        // If opening and branches are not yet loaded, start loading them lazily.
+        if ( willOpen ) {
+          const repo = repositories.find(function (r) {
+            return r.slug === slug;
+          });
+          if ( repo && repo.branches === null && !repo.loadingBranches ) {
+            // kick off async load (no need to await here)
+            loadRepositoryBranches( slug );
+          }
+        }
         return next;
       });
     }
@@ -418,11 +429,31 @@
                     ),
                   ),
                   isExpanded
-                    ? el(
-                        "ul",
-                        { className: "git-switcher-branches" },
-                        (repo.branches || []).map(function (branchObj) {
-                          const branch = branchObj.name;
+                    ? repo.loadingBranches
+                      ? el(
+                          "div",
+                          { className: "git-switcher-branches-loading" },
+                          el(Spinner, {}),
+                          " ",
+                          i18n.loadingBranches || "Loading branches...",
+                        )
+                      : repo.branches === null
+                      ? el(
+                          "div",
+                          { className: "git-switcher-branches-empty" },
+                          i18n.expandToLoad || "Expand to load branches",
+                        )
+                      : repo.branches.length === 0
+                      ? el(
+                          "p",
+                          { className: "git-switcher-empty" },
+                          i18n.noBranches || "No branches found.",
+                        )
+                      : el(
+                          "ul",
+                          { className: "git-switcher-branches" },
+                          (repo.branches || []).map(function (branchObj) {
+                            const branch = branchObj.name;
                           const lastTs = branchObj.last_commit;
                           const lastAuthor = branchObj.last_author || "";
                           const lastShow = branchObj.last_commit_show || "";

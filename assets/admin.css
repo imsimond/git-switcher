@@ -118,6 +118,18 @@
   text-overflow: ellipsis;
 }
 
+.git-switcher-branches-loading {
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.git-switcher-branches-empty {
+  padding: 8px;
+  color: #646970;
+}
+
 .git-switcher-badge {
   font-size: 11px;
   color: #333;
