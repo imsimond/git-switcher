@@ -264,6 +264,19 @@
             // kick off async load (no need to await here)
             loadRepositoryBranches(slug);
           }
+        } else {
+          // closing, clear branches to force refresh on next open
+          setRepositories(function (prev) {
+            return prev.map(function (r) {
+              if (r.slug === slug) {
+                return Object.assign({}, r, {
+                  branches: null,
+                  loadingBranches: false,
+                });
+              }
+              return r;
+            });
+          });
         }
         return next;
       });
@@ -322,6 +335,11 @@
         setIsOpen(function (prev) {
           if (prev) {
             // closing
+            setExpanded({});
+            setShowStat(false);
+            setStatAnchor(null);
+            setStatContent("");
+            setRepositories([]);
             return false;
           } else {
             // opening
@@ -347,27 +365,6 @@
 
     useEffect(
       function () {
-        if (!isOpen) {
-          // Reset state when popover closes (via button or outside click)
-          setExpanded({});
-          setShowStat(false);
-          setStatAnchor(null);
-          setStatContent("");
-          setRepositories(function (prev) {
-            return (prev || []).map(function (r) {
-              return Object.assign({}, r, {
-                branches: null,
-                loadingBranches: false,
-              });
-            });
-          });
-        }
-      },
-      [isOpen],
-    );
-
-    useEffect(
-      function () {
         if (!isOpen) return;
 
         const handleClickOutside = function (event) {
@@ -375,6 +372,11 @@
           if (anchor && anchor.contains(event.target)) return;
           const popover = document.querySelector(".git-switcher-popover");
           if (popover && popover.contains(event.target)) return;
+          setExpanded({});
+          setShowStat(false);
+          setStatAnchor(null);
+          setStatContent("");
+          setRepositories([]);
           setIsOpen(false);
         };
 
