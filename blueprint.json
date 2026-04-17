@@ -5,9 +5,10 @@
     {
       "step": "installPlugin",
       "pluginData": {
-        "resource": "github",
-        "repository": "imsimond/git-switcher",
-        "ref": "main"
+        "resource": "git:directory",
+        "url": "https://github.com/imsimond/git-switcher",
+        "ref": "main",
+        "refType": "branch"
       }
     },
     {
