@@ -235,6 +235,10 @@ function git_switcher_get_git_plugin_repositories() {
 			continue;
 		}
 
+		// Ensure remote tracking refs are up-to-date so ahead/behind counts
+		// reflect the current remote (useful when merges happen on GitHub).
+		git_switcher_fetch_remote_for_repo( $repo_path );
+
 		$current_branch = git_switcher_get_current_branch( $repo_path );
 		$branches       = git_switcher_get_local_branches( $repo_path );
 
@@ -647,6 +651,28 @@ function git_switcher_get_git_binary() {
 	}
 
 	return '';
+}
+
+
+/**
+ * Fetch remote refs for a repository to refresh origin/* tracking refs.
+ *
+ * This runs a quiet `git fetch` using the configured git binary. Failures
+ * are ignored to avoid breaking the UI if fetch cannot run.
+ *
+ * @param string $repo_path Absolute path to repository.
+ * @return void
+ */
+function git_switcher_fetch_remote_for_repo( $repo_path ) {
+	$git_binary = git_switcher_get_git_binary();
+	if ( '' === $git_binary ) {
+		return;
+	}
+
+	// Fetch tags and prune deleted refs from origin; keep this quiet.
+	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' fetch --tags --prune origin 2>/dev/null';
+	// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+	@shell_exec( $cmd );
 }
 
 /**
