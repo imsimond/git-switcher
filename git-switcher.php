@@ -99,7 +99,7 @@ function git_switcher_enqueue_assets() {
 			'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
 			'nonce'              => wp_create_nonce( 'git_switcher_nonce' ),
 			'gitBinary'          => get_option( 'git_switcher_git_binary', '' ),
-			'shellExecAvailable' => function_exists( 'shell_exec' ),
+			'shellExecAvailable' => git_switcher_shell_exec_available(),
 			'i18n'               => array(
 				'buttonLabel'          => __( 'Git Switcher', 'git-switcher' ),
 				'tabPlugins'           => __( 'Plugins', 'git-switcher' ),
@@ -257,7 +257,7 @@ function git_switcher_ajax_checkout_branch() {
 	$cmd          = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' checkout ' . escapeshellarg( $branch ) . ' 2>&1';
 	$output_lines = array();
 	$exit_code    = 0;
-	exec( $cmd, $output_lines, $exit_code ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec -- local development tool.
+	git_switcher_exec( $cmd, $output_lines, $exit_code );
 
 	if ( 0 !== $exit_code ) {
 		wp_send_json_error(
@@ -575,13 +575,13 @@ function git_switcher_get_commit_show_stat( $repo_path, $commit_ref ) {
 	}
 
 	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' show --stat --no-patch --no-color ' . escapeshellarg( $commit_ref ) . ' 2>/dev/null';
-	$raw = shell_exec( $cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-	if ( null === $raw ) {
+	$raw = git_switcher_shell_exec( $cmd );
+	if ( '' === $raw ) {
 		return '';
 	}
 
 	$shortstat_cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' show --shortstat --format=' . escapeshellarg( '' ) . ' --no-color ' . escapeshellarg( $commit_ref ) . ' 2>/dev/null';
-	$shortstat_raw = shell_exec( $shortstat_cmd ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
+	$shortstat_raw = git_switcher_shell_exec( $shortstat_cmd );
 	$shortstat     = trim( (string) $shortstat_raw );
 
 	$out = trim( (string) $raw );
@@ -713,17 +713,59 @@ function git_switcher_get_branch_last_commit_info( $repo_path, $branch ) {
 		}
 	}
 
+	// Default tracking values.
+	$upstream_ref = '';
+	$upstream_raw = '';
+	$ahead        = 0;
+	$behind       = 0;
+	$in_sync      = false;
+	$gone         = false;
+
+	// If execution is available and a git binary is configured, try to
+	// obtain upstream tracking info and compute ahead/behind counts
+	// using git commands. Fall back to defaults on failure.
+	$git_binary = git_switcher_get_git_binary();
+	if ( git_switcher_shell_exec_available() && '' !== $git_binary ) {
+		// upstream tracking description (e.g. "[ahead 1]").
+		$for_each_cmd =
+		escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) .
+		' for-each-ref --format=%(upstream:track) refs/heads/' . escapeshellarg( $branch ) . ' 2>/dev/null';
+		$upstream_raw = trim( (string) git_switcher_shell_exec( $for_each_cmd ) );
+
+		// resolve upstream ref (branch@{upstream}) to a human-friendly name.
+		$revparse_cmd =
+		escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) .
+		' rev-parse --abbrev-ref --symbolic-full-name ' . escapeshellarg( $branch . '@{u}' ) . ' 2>/dev/null';
+		$upstream_ref = trim( (string) git_switcher_shell_exec( $revparse_cmd ) );
+
+		if ( '' !== $upstream_ref ) {
+			// Compute left/right commit counts: <local-only> <upstream-only>.
+			$counts_cmd =
+			escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) .
+			' rev-list --left-right --count ' . escapeshellarg( $branch . '...' . $branch . '@{u}' ) . ' 2>/dev/null';
+			$counts_out = trim( (string) git_switcher_shell_exec( $counts_cmd ) );
+			if ( preg_match( '/^(\d+)\s+(\d+)$/', $counts_out, $m ) ) {
+				$ahead   = (int) $m[1];
+				$behind  = (int) $m[2];
+				$in_sync = ( 0 === $ahead && 0 === $behind );
+			} else {
+				// upstream likely gone or rev-list failed.
+				$gone = true;
+			}
+		}
+	}
+
 	return array(
 		'sha'          => $sha,
 		'timestamp'    => $timestamp,
 		'author'       => $author,
 		'show_stat'    => git_switcher_get_commit_show_stat( $repo_path, $sha ),
-		'upstream_ref' => '',
-		'upstream_raw' => '',
-		'ahead'        => 0,
-		'behind'       => 0,
-		'in_sync'      => false,
-		'gone'         => false,
+		'upstream_ref' => $upstream_ref,
+		'upstream_raw' => $upstream_raw,
+		'ahead'        => $ahead,
+		'behind'       => $behind,
+		'in_sync'      => $in_sync,
+		'gone'         => $gone,
 	);
 }
 
@@ -758,6 +800,81 @@ function git_switcher_get_git_binary() {
 
 
 /**
+ * Return whether any execution function is available for running commands.
+ *
+ * @return bool
+ */
+function git_switcher_shell_exec_available() {
+	return function_exists( 'shell_exec' ) || function_exists( 'exec' );
+}
+
+
+/**
+ * Execute a command and return its stdout as a string. Falls back to `exec`
+ * when `shell_exec` is unavailable. Returns empty string on failure.
+ *
+ * Centralising system calls here allows graceful failure and a single
+ * location for `phpcs` suppression.
+ *
+ * @param  string $cmd Shell command to execute.
+ * @return string
+ */
+function git_switcher_shell_exec( $cmd ) {
+	if ( function_exists( 'shell_exec' ) ) {
+    	// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- central wrapper.
+		$out = shell_exec( $cmd );
+		return null === $out ? '' : (string) $out;
+	}
+
+	if ( function_exists( 'exec' ) ) {
+		$lines = array();
+		$exit  = 0;
+     // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec -- central wrapper.
+		exec( $cmd, $lines, $exit );
+		return implode( "\n", $lines );
+	}
+
+	return '';
+}
+
+
+/**
+ * Execute a command using `exec` semantics (capture output array and exit code).
+ * Falls back to `shell_exec` when `exec` is not available.
+ *
+ * @param  string $cmd          Command to run.
+ * @param  array  $output_lines Output lines (by reference).
+ * @param  int    $exit_code    Exit code (by reference).
+ * @return int Exit code.
+ */
+function git_switcher_exec( $cmd, &$output_lines = array(), &$exit_code = 127 ) {
+	$output_lines = array();
+	$exit_code    = 127;
+
+	if ( function_exists( 'exec' ) ) {
+     // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec -- central wrapper.
+		exec( $cmd, $output_lines, $exit_code );
+		return $exit_code;
+	}
+
+	if ( function_exists( 'shell_exec' ) ) {
+     // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- central wrapper.
+		$raw = shell_exec( $cmd );
+		if ( null === $raw ) {
+			$output_lines = array();
+			$exit_code    = 127;
+			return $exit_code;
+		}
+		$output_lines = explode( "\n", trim( (string) $raw ) );
+		$exit_code    = 0;
+		return $exit_code;
+	}
+
+	return $exit_code;
+}
+
+
+/**
  * Fetch remote refs for a repository to refresh origin/* tracking refs.
  *
  * This runs a quiet `git fetch` using the configured git binary. Failures
@@ -774,8 +891,7 @@ function git_switcher_fetch_remote_for_repo( $repo_path ) {
 
 	// Fetch tags and prune deleted refs from origin; keep this quiet.
 	$cmd = escapeshellarg( $git_binary ) . ' -C ' . escapeshellarg( $repo_path ) . ' fetch --tags --prune origin 2>/dev/null';
-	// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec -- local development tool.
-	shell_exec( $cmd );
+	git_switcher_shell_exec( $cmd );
 }
 
 /**

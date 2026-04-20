@@ -442,6 +442,8 @@
                 el(TextControl, {
                   label: i18n.gitBinaryLabel || "Git binary path",
                   value: gitBinary,
+                  __next40pxDefaultSize: true,
+                  __nextHasNoMarginBottom: true,
                   onChange: function (value) {
                     setGitBinary(value);
                   },
